@@ -3,7 +3,9 @@ import numpy as np
 from twisted.internet import reactor, protocol
 
 with h5py.File('/home/alex/datasets/ucm-sample.h5') as f:
-	imtest = f['source/images'][12]
+	imtest = f['source/images'][12].astype('f4')
+	print(imtest.dtype, imtest.shape)
+	print(np.min(imtest), np.max(imtest))
 
 class H5Slice(protocol.Protocol):
     def dataReceived(self, data):
