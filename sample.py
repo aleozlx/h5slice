@@ -3,22 +3,26 @@ import h5py, gzip
 import numpy as np
 from twisted.internet import reactor, protocol
 
-# with h5py.File('/home/alex/datasets/ucm-sample.h5') as f:
-# 	imtest = f['source/images'][12].astype('f4')
-# 	print(imtest.dtype, imtest.shape)
-# 	print(np.min(imtest), np.max(imtest))
-
 def get_h5slice(fname, h5path, idx, as_type):
     with h5py.File(fname) as f:
 	    return f[h5path][idx].astype(as_type)
 
+def parse_query(query):
+    try:
+        return slice(*tuple(map(int, query.split(':')))) if ':' in query else int(query)
+    except:
+        pass
+
 class H5Slice(protocol.Protocol):
     def dataReceived(self, data):
-        fname, h5path, idx, as_type = data.decode("ascii").split('\t')
-        idx = int(idx)
+        fname, h5path, query, as_type = data.decode("ascii").split('\t')
+        print('In', fname, h5path, query, as_type)
+        idx = parse_query(query)
         as_type = as_type.strip()
-        imtest = get_h5slice(fname, h5path, idx, as_type)
-        self.transport.write(gzip.compress(imtest.tobytes(), 3))
+        if idx and as_type in ('i4', 'f4'):
+            imtest = get_h5slice(fname, h5path, idx, as_type)
+            print('Out', imtest.shape, imtest.dtype, np.min(imtest), np.max(imtest))
+            self.transport.write(gzip.compress(imtest.tobytes(), 3))
         self.transport.loseConnection()
 
 def main():
