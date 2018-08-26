@@ -44,7 +44,7 @@ class H5Slice(protocol.Protocol):
 def main():
     factory = protocol.ServerFactory()
     factory.protocol = H5Slice
-    reactor.listenTCP(8000, factory)
+    reactor.listenTCP(8000, factory, interface='0.0.0.0')
     reactor.run()
 
 if __name__ == '__main__':
