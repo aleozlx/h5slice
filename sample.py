@@ -20,13 +20,17 @@ def query_to_slice(query):
 def postprocess(im):
     if len(im.shape) in [4, 3]:
         mean = [103.939, 116.779, 123.68]
-        if im.shape[-1] == 1:
+        bands = im.shape[-1]
+        if bands == 1:
             imout = (im[..., 0] + max(mean))
-        elif im.shape[-1] == 3:
+        elif bands == 3:
             imout = im[..., ::-1].copy()
             imout[..., 0] += mean[0]
             imout[..., 1] += mean[1]
             imout[..., 2] += mean[2]
+        elif bands >=4:
+            # flatten bands into batch
+            
         imout /= 255.0
         np.clip(imout, 0.0, 1.0, out = imout)
         return imout
