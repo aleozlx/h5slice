@@ -1,13 +1,17 @@
-import os, sys, re
+import os, sys, re, subprocess
 import h5py, gzip
 import numpy as np
 from twisted.internet import reactor, protocol
 
 def get_h5slice(fname, h5path, idx, as_type):
     with h5py.File(fname) as f:
-	    return f[h5path][idx].astype(as_type)
+        return f[h5path][idx].astype(as_type)
 
-def parse_query(query):
+def get_h5ls(fname):
+    if os.path.exists(fname) and os.path.splitext(fname)[1] == '.h5':
+        return subprocess.run(['h5ls', '-r', fname], stdout=subprocess.PIPE).stdout
+
+def query_to_slice(query):
     try:
         return slice(*tuple(map(int, query.split(':')))) if ':' in query else int(query)
     except:
@@ -29,16 +33,23 @@ def postprocess(im):
     else:
         return im
 
+def process_query(request, transport):
+    fname, h5path, query, as_type = request.split('\t')
+    print('In', fname, h5path, query, as_type)
+    if query == 'h5ls':
+        transport.write(get_h5ls(fname))
+        return
+
+    idx = query_to_slice(query)
+    as_type = as_type.strip()
+    if idx and as_type in ('i4', 'f4'):
+        imtest = postprocess(get_h5slice(fname, h5path, idx, as_type))
+        print('Out', imtest.shape, imtest.dtype, np.min(imtest), np.max(imtest))
+        transport.write(gzip.compress(imtest.tobytes(), 3))
+
 class H5Slice(protocol.Protocol):
     def dataReceived(self, data):
-        fname, h5path, query, as_type = data.decode("ascii").split('\t')
-        print('In', fname, h5path, query, as_type)
-        idx = parse_query(query)
-        as_type = as_type.strip()
-        if idx and as_type in ('i4', 'f4'):
-            imtest = postprocess(get_h5slice(fname, h5path, idx, as_type))
-            print('Out', imtest.shape, imtest.dtype, np.min(imtest), np.max(imtest))
-            self.transport.write(gzip.compress(imtest.tobytes(), 3))
+        process_query(data.decode("ascii"), self.transport)
         self.transport.loseConnection()
 
 def main():
